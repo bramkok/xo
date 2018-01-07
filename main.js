@@ -141,7 +141,12 @@ if (opts.init) {
 } else if (opts.stdin) {
 	getStdin().then(str => {
 		if (opts.fix) {
-			console.log(xo.lintText(str, opts).results[0].output);
+			const fixedOutput = xo.lintText(str, opts).results[0].output;
+			if (typeof fixedOutput === 'undefined') {
+				console.log(str.replace(/\s$/g, ''));
+			} else {
+				console.log(fixedOutput.replace(/\s$/g, ''));
+			}
 			return;
 		}
 
