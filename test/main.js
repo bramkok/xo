@@ -45,7 +45,7 @@ test('overrides fixture', async t => {
 	await t.notThrows(main([], {cwd}));
 });
 
-// https://github.com/sindresorhus/xo/issues/65
+// #65
 test.failing('ignores fixture', async t => {
 	const cwd = path.join(__dirname, 'fixtures/ignores');
 	await t.throws(main([], {cwd}));
@@ -57,7 +57,7 @@ test('ignore files in .gitignore', async t => {
 	const reports = JSON.parse(err.stdout);
 	const files = reports
 		.map(report => path.relative(cwd, report.filePath))
-		.map(slash);
+		.map(report => slash(report));
 	t.deepEqual(files, ['index.js', 'test/bar.js']);
 });
 
@@ -93,4 +93,10 @@ test('init option', async t => {
 	});
 	const packageJson = fs.readFileSync(filepath, 'utf8');
 	t.deepEqual(JSON.parse(packageJson).scripts, {test: 'xo'});
+});
+
+test('invalid node-engine option', async t => {
+	const filepath = await tempWrite('console.log()\n', 'x.js');
+	const err = await t.throws(main(['--node-version', 'v', filepath]));
+	t.is(err.code, 1);
 });

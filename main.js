@@ -4,6 +4,7 @@ const updateNotifier = require('update-notifier');
 const getStdin = require('get-stdin');
 const meow = require('meow');
 const formatterPretty = require('eslint-formatter-pretty');
+const semver = require('semver');
 const openReport = require('./lib/open-report');
 const xo = require('.');
 
@@ -21,6 +22,7 @@ const cli = meow(`
 	  --space           Use space indent instead of tabs  [Default: 2]
 	  --no-semicolon    Prevent use of semicolons
 	  --prettier        Conform to Prettier code style
+	  --node-version    Range of Node.js version to support
 	  --plugin          Include third-party plugins  [Can be set multiple times]
 	  --extend          Extend defaults with a custom config  [Can be set multiple times]
 	  --open            Open files with issues in your editor
@@ -73,8 +75,11 @@ const cli = meow(`
 		// 	type: 'boolean',
 		// 	default: true
 		// },
-		prettier: {
-			type: 'boolean'
+		// prettier: {
+		// 	type: 'boolean'
+		// },
+		nodeVersion: {
+			type: 'string'
 		},
 		plugin: {
 			type: 'string'
@@ -104,10 +109,6 @@ const cli = meow(`
 		stdinFilename: {
 			type: 'string',
 			alias: 'filename'
-		},
-		// TODO: Remove in 1.0.0
-		compact: {
-			type: 'boolean'
 		}
 	}
 });
@@ -118,12 +119,6 @@ const input = cli.input;
 const opts = cli.flags;
 
 const log = report => {
-	// Legacy
-	// TODO: Remove in 1.0.0
-	if (opts.compact) {
-		opts.reporter = 'compact';
-	}
-
 	const reporter = opts.reporter ? xo.getFormatter(opts.reporter) : formatterPretty;
 
 	process.stdout.write(reporter(report.results));
@@ -134,6 +129,17 @@ const log = report => {
 if (input[0] === '-') {
 	opts.stdin = true;
 	input.shift();
+}
+
+if (opts.nodeVersion) {
+	if (opts.nodeVersion === 'false') {
+		opts.engines = false;
+	} else if (semver.validRange(opts.nodeVersion)) {
+		opts.engines = {node: opts.nodeVersion};
+	} else {
+		console.error('The `node-engine` option must be a valid semver range (for example `>=4`)');
+		process.exit(1);
+	}
 }
 
 if (opts.init) {

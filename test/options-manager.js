@@ -4,6 +4,7 @@ import proxyquire from 'proxyquire';
 import parentConfig from './fixtures/nested/package';
 import childConfig from './fixtures/nested/child/package';
 import prettierConfig from './fixtures/prettier/package';
+import enginesConfig from './fixtures/engines/package';
 
 process.chdir(__dirname);
 
@@ -91,6 +92,12 @@ test('buildConfig: prettier: true', t => {
 		}]});
 	// eslint-prettier-config must always be last
 	t.deepEqual(config.baseConfig.extends.slice(-1), ['prettier']);
+	// Indent rule is not enabled
+	t.is(config.rules.indent, undefined);
+	// Semi rule is not enabled
+	t.is(config.rules.semi, undefined);
+	// Semi-spacing is not enabled
+	t.is(config.rules['semi-spacing'], undefined);
 });
 
 test('buildConfig: prettier: true, semicolon: false', t => {
@@ -106,6 +113,12 @@ test('buildConfig: prettier: true, semicolon: false', t => {
 		tabWidth: 2,
 		trailingComma: 'es5'
 	}]);
+	// Indent rule is not enabled
+	t.is(config.rules.indent, undefined);
+	// Semi rule is not enabled
+	t.is(config.rules.semi, undefined);
+	// Semi-spacing is not enabled
+	t.is(config.rules['semi-spacing'], undefined);
 });
 
 test('buildConfig: prettier: true, space: 4', t => {
@@ -121,6 +134,12 @@ test('buildConfig: prettier: true, space: 4', t => {
 		tabWidth: 4,
 		trailingComma: 'es5'
 	}]);
+	// Indent rule is not enabled
+	t.is(config.rules.indent, undefined);
+	// Semi rule is not enabled
+	t.is(config.rules.semi, undefined);
+	// Semi-spacing is not enabled
+	t.is(config.rules['semi-spacing'], undefined);
 });
 
 test('buildConfig: prettier: true, esnext: false', t => {
@@ -136,20 +155,189 @@ test('buildConfig: prettier: true, esnext: false', t => {
 		tabWidth: 2,
 		trailingComma: 'none'
 	}]);
+	// Indent rule is not enabled
+	t.is(config.rules.indent, undefined);
+	// Semi rule is not enabled
+	t.is(config.rules.semi, undefined);
+	// Semi-spacing is not enabled
+	t.is(config.rules['semi-spacing'], undefined);
+});
+
+test('buildConfig: prettier: true, space: true', t => {
+	const config = manager.buildConfig({prettier: true, space: true});
+
+	// Sets `useTabs` and `tabWidth` options in `prettier/prettier` rule based on the XO `space` options
+	t.deepEqual(config.rules['prettier/prettier'], ['error', {
+		useTabs: false,
+		bracketSpacing: false,
+		jsxBracketSameLine: false,
+		semi: true,
+		singleQuote: true,
+		tabWidth: 2,
+		trailingComma: 'es5'
+	}]);
+	// Indent rule is not enabled
+	t.is(config.rules.indent, undefined);
+	// Semi rule is not enabled
+	t.is(config.rules.semi, undefined);
+	// Semi-spacing is not enabled
+	t.is(config.rules['semi-spacing'], undefined);
+});
+
+test('buildConfig: merge with prettier config', t => {
+	const cwd = path.resolve('fixtures', 'prettier');
+	const config = manager.buildConfig({cwd, prettier: true});
+
+	// Sets the `semi` options in `prettier/prettier` based on the XO `semicolon` option
+	t.deepEqual(config.rules['prettier/prettier'], ['error', prettierConfig.prettier]);
+	// Indent rule is not enabled
+	t.is(config.rules.indent, undefined);
+	// Semi rule is not enabled
+	t.is(config.rules.semi, undefined);
+	// Semi-spacing is not enabled
+	t.is(config.rules['semi-spacing'], undefined);
+});
+
+test('buildConfig: engines: undefined', t => {
+	const config = manager.buildConfig({});
+
+	// Do not include any Node.js version specific rules
+	t.is(config.rules['prefer-spread'], undefined);
+	t.is(config.rules['prefer-rest-params'], undefined);
+	t.is(config.rules['prefer-destructuring'], undefined);
+	t.is(config.rules['promise/prefer-await-to-then'], undefined);
+});
+
+test('buildConfig: engines: false', t => {
+	const config = manager.buildConfig({engines: false});
+
+	// Do not include any Node.js version specific rules
+	t.is(config.rules['prefer-spread'], undefined);
+	t.is(config.rules['prefer-rest-params'], undefined);
+	t.is(config.rules['prefer-destructuring'], undefined);
+	t.is(config.rules['promise/prefer-await-to-then'], undefined);
+});
+
+test('buildConfig: engines: invalid range', t => {
+	const config = manager.buildConfig({engines: {node: '4'}});
+
+	// Do not include any Node.js version specific rules
+	t.is(config.rules['prefer-spread'], undefined);
+	t.is(config.rules['prefer-rest-params'], undefined);
+	t.is(config.rules['prefer-destructuring'], undefined);
+	t.is(config.rules['promise/prefer-await-to-then'], undefined);
+});
+
+test('buildConfig: engines: >=4', t => {
+	const config = manager.buildConfig({engines: {node: '>=4'}});
+
+	// Do not include rules for Node.js 5 and above
+	t.is(config.rules['unicorn/prefer-spread'], undefined);
+	// Do not include rules for Node.js 6 and above
+	t.is(config.rules['prefer-rest-params'], undefined);
+	t.is(config.rules['prefer-destructuring'], undefined);
+	// Do not include rules for Node.js 8 and above
+	t.is(config.rules['promise/prefer-await-to-then'], undefined);
+});
+
+test('buildConfig: engines: >=4.1', t => {
+	const config = manager.buildConfig({engines: {node: '>=5.1'}});
+
+	// Do not include rules for Node.js 5 and above
+	t.is(config.rules['unicorn/prefer-spread'], 'error');
+	// Do not include rules for Node.js 6 and above
+	t.is(config.rules['prefer-rest-params'], undefined);
+	t.is(config.rules['prefer-destructuring'], undefined);
+	// Do not include rules for Node.js 8 and above
+	t.is(config.rules['promise/prefer-await-to-then'], undefined);
+});
+
+test('buildConfig: engines: >=6', t => {
+	const config = manager.buildConfig({engines: {node: '>=6'}});
+
+	// Include rules for Node.js 5 and above
+	t.is(config.rules['unicorn/prefer-spread'], 'error');
+	// Include rules for Node.js 6 and above
+	t.is(config.rules['prefer-rest-params'], 'error');
+	t.deepEqual(config.rules['prefer-destructuring'], ['error', {array: true, object: true}]);
+	// Do not include rules for Node.js 8 and above
+	t.is(config.rules['promise/prefer-await-to-then'], undefined);
+});
+
+test('buildConfig: engines: >=8', t => {
+	const config = manager.buildConfig({engines: {node: '>=8'}});
+
+	// Include rules for Node.js 5 and above
+	t.is(config.rules['unicorn/prefer-spread'], 'error');
+	// Include rules for Node.js 6 and above
+	t.is(config.rules['prefer-rest-params'], 'error');
+	t.deepEqual(config.rules['prefer-destructuring'], ['error', {array: true, object: true}]);
+	// Include rules for Node.js 8 and above
+	t.is(config.rules['promise/prefer-await-to-then'], 'error');
 });
 
 test('mergeWithPrettierConf: use `singleQuote`, `trailingComma`, `bracketSpacing` and `jsxBracketSameLine` from `prettier` config if defined', t => {
-	const cwd = path.resolve('fixtures', 'prettier');
-	const result = manager.mergeWithPrettierConf({cwd});
-	const expected = Object.assign({}, prettierConfig.prettier, {tabWidth: 2, useTabs: true, semi: true});
+	const prettierOpts = {singleQuote: false, trailingComma: 'all', bracketSpacing: false, jsxBracketSameLine: false};
+	const result = manager.mergeWithPrettierConf({}, prettierOpts);
+	const expected = Object.assign({}, prettierOpts, {tabWidth: 2, useTabs: true, semi: true});
 	t.deepEqual(result, expected);
 });
 
 test('mergeWithPrettierConf: determine `tabWidth`, `useTabs`, `semi` from xo config', t => {
-	const cwd = path.resolve('fixtures', 'prettier');
-	const result = manager.mergeWithPrettierConf({cwd, space: 4, semicolon: false});
-	const expected = Object.assign({}, prettierConfig.prettier, {tabWidth: 4, useTabs: false, semi: false});
+	const prettierOpts = {tabWidth: 4, useTabs: false, semi: false};
+	const result = manager.mergeWithPrettierConf({space: 4, semicolon: false}, {});
+	const expected = Object.assign(
+		{bracketSpacing: false, jsxBracketSameLine: false, singleQuote: true, trailingComma: 'es5'},
+		prettierOpts
+	);
 	t.deepEqual(result, expected);
+});
+
+test('mergeWithPrettierConf: determine `tabWidth`, `useTabs`, `semi` from prettier config', t => {
+	const prettierOpts = {useTabs: false, semi: false, tabWidth: 4};
+	const result = manager.mergeWithPrettierConf({}, prettierOpts);
+	const expected = Object.assign(
+		{bracketSpacing: false, jsxBracketSameLine: false, singleQuote: true, trailingComma: 'es5'},
+		prettierOpts
+	);
+	t.deepEqual(result, expected);
+});
+
+test('mergeWithPrettierConf: throw error is `semi`/`semicolon` conflicts', t => {
+	t.throws(() => manager.mergeWithPrettierConf(
+		{semicolon: true},
+		{semi: false}
+	));
+	t.throws(() => manager.mergeWithPrettierConf(
+		{semicolon: false},
+		{semi: true}
+	));
+
+	t.notThrows(() => manager.mergeWithPrettierConf(
+		{semicolon: true},
+		{semi: true}
+	));
+	t.notThrows(() => manager.mergeWithPrettierConf({semicolon: false}, {semi: false}));
+});
+
+test('mergeWithPrettierConf: throw error is `space`/`useTabs` conflicts', t => {
+	t.throws(() => manager.mergeWithPrettierConf({space: true}, {useTabs: false}));
+	t.throws(() => manager.mergeWithPrettierConf({space: 4}, {useTabs: false}));
+	t.throws(() => manager.mergeWithPrettierConf({space: 0}, {useTabs: false}));
+	t.throws(() => manager.mergeWithPrettierConf({space: false}, {useTabs: true}));
+
+	t.notThrows(() => manager.mergeWithPrettierConf({space: false}, {useTabs: false}));
+	t.notThrows(() => manager.mergeWithPrettierConf({space: true}, {useTabs: true}));
+});
+
+test('mergeWithPrettierConf: throw error is `space`/`tabWidth` conflicts', t => {
+	t.throws(() => manager.mergeWithPrettierConf({space: 4}, {tabWidth: 2}));
+	t.throws(() => manager.mergeWithPrettierConf({space: 0}, {tabWidth: 2}));
+	t.throws(() => manager.mergeWithPrettierConf({space: 2}, {tabWidth: 0}));
+
+	t.notThrows(() => manager.mergeWithPrettierConf({space: 4}, {tabWidth: 4}));
+	t.notThrows(() => manager.mergeWithPrettierConf({space: false}, {tabWidth: 4}));
+	t.notThrows(() => manager.mergeWithPrettierConf({space: true}, {tabWidth: 4}));
 });
 
 test('buildConfig: rules', t => {
@@ -255,26 +443,47 @@ test('groupConfigs', t => {
 test('mergeWithPkgConf: use child if closest', t => {
 	const cwd = path.resolve('fixtures', 'nested', 'child');
 	const result = manager.mergeWithPkgConf({cwd});
-	const expected = Object.assign({}, childConfig.xo, {cwd});
+	const expected = Object.assign({}, childConfig.xo, {cwd}, {engines: {}});
 	t.deepEqual(result, expected);
 });
 
 test('mergeWithPkgConf: use parent if closest', t => {
 	const cwd = path.resolve('fixtures', 'nested');
 	const result = manager.mergeWithPkgConf({cwd});
-	const expected = Object.assign({}, parentConfig.xo, {cwd});
+	const expected = Object.assign({}, parentConfig.xo, {cwd}, {engines: {}});
 	t.deepEqual(result, expected);
 });
 
 test('mergeWithPkgConf: use parent if child is ignored', t => {
 	const cwd = path.resolve('fixtures', 'nested', 'child-ignore');
 	const result = manager.mergeWithPkgConf({cwd});
-	const expected = Object.assign({}, parentConfig.xo, {cwd});
+	const expected = Object.assign({}, parentConfig.xo, {cwd}, {engines: {}});
 	t.deepEqual(result, expected);
 });
 
 test('mergeWithPkgConf: use child if child is empty', t => {
 	const cwd = path.resolve('fixtures', 'nested', 'child-empty');
 	const result = manager.mergeWithPkgConf({cwd});
-	t.deepEqual(result, {cwd});
+	t.deepEqual(result, {cwd, engines: {}});
+});
+
+test('mergeWithPkgConf: read engines from package.json', t => {
+	const cwd = path.resolve('fixtures', 'engines');
+	const result = manager.mergeWithPkgConf({cwd});
+	const expected = Object.assign({}, {engines: enginesConfig.engines}, {cwd});
+	t.deepEqual(result, expected);
+});
+
+test('mergeWithPkgConf: XO engine options supersede package.json\'s', t => {
+	const cwd = path.resolve('fixtures', 'engines');
+	const result = manager.mergeWithPkgConf({cwd, engines: {node: '>=8'}});
+	const expected = Object.assign({}, {engines: {node: '>=8'}}, {cwd});
+	t.deepEqual(result, expected);
+});
+
+test('mergeWithPkgConf: XO engine options false supersede package.json\'s', t => {
+	const cwd = path.resolve('fixtures', 'engines');
+	const result = manager.mergeWithPkgConf({cwd, engines: false});
+	const expected = Object.assign({}, {engines: false}, {cwd});
+	t.deepEqual(result, expected);
 });
